@@ -9,13 +9,8 @@ late List<CameraDescription> _cameras;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  if (await Permission.camera.request().isGranted) {
-    _cameras = await availableCameras();
-    runApp(FaceDetectionApp());
-  } else {
-    print("Camera permission denied");
-  }
+  _cameras = await availableCameras();
+  runApp(FaceDetectionApp());
 }
 
 class FaceDetectionApp extends StatelessWidget {
@@ -47,58 +42,83 @@ class _FaceDetectionScreenState extends State<FaceDetectionScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeCamera();
+    _requestCameraPermission();
   }
 
+  /// **Request Camera Permission at Runtime**
+  Future<void> _requestCameraPermission() async {
+    var status = await Permission.camera.request();
+    if (status.isGranted) {
+      print("✅ Camera permission granted");
+      _initializeCamera();
+    } else {
+      print("❌ Camera permission denied");
+      setState(() => _mood = "Camera Permission Denied");
+    }
+  }
+
+  /// **Initialize Camera**
   Future<void> _initializeCamera() async {
     if (_cameras.isEmpty) {
-      print("No cameras found!");
+      print("❌ No cameras found!");
       return;
     }
 
-    // ✅ Open front camera by default
-    _cameraIndex = _cameras.indexWhere((camera) => camera.lensDirection == CameraLensDirection.front);
-    if (_cameraIndex == -1) _cameraIndex = 0; // If no front camera, fallback to first available
-
-    _cameraController = CameraController(
-      _cameras[_cameraIndex],
-      ResolutionPreset.high, // High quality for better detection
-      enableAudio: false,
-    );
+    print("📷 Initializing camera at index: $_cameraIndex");
 
     try {
+      _cameraController = CameraController(
+        _cameras[_cameraIndex],
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+
       await _cameraController!.initialize();
 
-      // ✅ Ensure auto exposure & lighting
-      await _cameraController!.setExposureMode(ExposureMode.auto);
-      await _cameraController!.setFlashMode(FlashMode.auto);
-
       if (!mounted) return;
-      setState(() {
-        _isCameraInitialized = true;
-      });
+
+      setState(() => _isCameraInitialized = true);
+      print("✅ Camera initialized successfully.");
       _startFaceDetection();
     } catch (e) {
-      print("Camera error: $e");
-      setState(() {
-        _isCameraInitialized = false;
-      });
+      print("❌ Camera initialization error: $e");
+      setState(() => _isCameraInitialized = false);
     }
   }
 
+  /// **Switch Between Front & Back Cameras**
   void _switchCamera() async {
-    _cameraIndex = (_cameraIndex + 1) % _cameras.length;
+    if (_cameras.length < 2) {
+      print("⚠️ Only one camera found, cannot switch.");
+      return;
+    }
+
+    print("🔄 Switching camera...");
+
+    if (_cameraController != null && _cameraController!.value.isStreamingImages) {
+      print("⏹ Stopping image stream...");
+      await _cameraController!.stopImageStream();
+      await Future.delayed(Duration(milliseconds: 300));
+    }
+
+    print("🛑 Disposing current camera...");
     await _cameraController?.dispose();
-    setState(() {
-      _isCameraInitialized = false;
-    });
+    _cameraController = null;
+
+    setState(() => _isCameraInitialized = false);
+
+    _cameraIndex = (_cameraIndex + 1) % _cameras.length;
+    print("📸 New camera index: $_cameraIndex");
+
+    await Future.delayed(Duration(milliseconds: 500));
+
+    print("🎥 Initializing new camera...");
     await _initializeCamera();
   }
 
+  /// **Start Face Detection**
   void _startFaceDetection() {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      return;
-    }
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
 
     _cameraController!.startImageStream((CameraImage image) async {
       if (_isDetecting) return;
@@ -108,30 +128,36 @@ class _FaceDetectionScreenState extends State<FaceDetectionScreen> {
         final InputImage inputImage = _convertCameraImage(image);
         final List<Face> faces = await _faceDetector.processImage(inputImage);
 
+        if (!mounted) return;
+
         setState(() {
           _mood = faces.isNotEmpty ? _analyzeMood(faces.first) : "No face detected";
         });
       } catch (e) {
-        print("Face detection error: $e");
+        print("❌ Face detection error: $e");
       } finally {
         _isDetecting = false;
       }
     });
   }
 
+  /// **Convert Camera Image to InputImage**
   InputImage _convertCameraImage(CameraImage image) {
-    final Uint8List bytes = convertYUV420ToNV21(image);
+    final Uint8List bytes = _convertYUV420ToNV21(image);
     final int rotation = _cameras[_cameraIndex].sensorOrientation;
+
     final InputImageMetadata metadata = InputImageMetadata(
       size: Size(image.width.toDouble(), image.height.toDouble()),
       rotation: _mapRotation(rotation),
       format: InputImageFormat.nv21,
       bytesPerRow: image.planes[0].bytesPerRow,
     );
+
     return InputImage.fromBytes(bytes: bytes, metadata: metadata);
   }
 
-  Uint8List convertYUV420ToNV21(CameraImage image) {
+  /// **Convert YUV_420 Image Format to NV21**
+  Uint8List _convertYUV420ToNV21(CameraImage image) {
     final int width = image.width;
     final int height = image.height;
     final int ySize = width * height;
@@ -152,6 +178,7 @@ class _FaceDetectionScreenState extends State<FaceDetectionScreen> {
     return nv21;
   }
 
+  /// **Map Rotation for Face Detection**
   InputImageRotation _mapRotation(int rotation) {
     switch (rotation) {
       case 90:
@@ -165,6 +192,7 @@ class _FaceDetectionScreenState extends State<FaceDetectionScreen> {
     }
   }
 
+  /// **Analyze Mood Based on Face Detection**
   String _analyzeMood(Face face) {
     double? smileProb = face.smilingProbability;
     double? leftEyeOpen = face.leftEyeOpenProbability;
@@ -180,12 +208,6 @@ class _FaceDetectionScreenState extends State<FaceDetectionScreen> {
     if (leftEyeOpen != null && rightEyeOpen != null) {
       if (leftEyeOpen < 0.3 && rightEyeOpen < 0.3) return "Sleepy 😴";
       if (leftEyeOpen > 0.7 && rightEyeOpen > 0.7) return "Surprised 😲";
-    }
-
-    if (face.headEulerAngleY != null) {
-      double tilt = face.headEulerAngleY!;
-      if (tilt > 20) return "Looking Right ➡️";
-      if (tilt < -20) return "Looking Left ⬅️";
     }
 
     return "Normal 🙂";
@@ -211,17 +233,7 @@ class _FaceDetectionScreenState extends State<FaceDetectionScreen> {
             left: 20,
             right: 20,
             child: Center(
-              child: Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  _mood,
-                  style: TextStyle(color: Colors.white, fontSize: 24),
-                ),
-              ),
+              child: Text(_mood, style: TextStyle(fontSize: 24, color: Colors.white)),
             ),
           ),
           Positioned(
