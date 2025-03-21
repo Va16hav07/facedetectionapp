@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:ui';
 
 // Emotion data model
 class EmotionData {
@@ -56,19 +57,24 @@ class FaceDetectionApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        primarySwatch: Colors.indigo,
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: Colors.black,
+        scaffoldBackgroundColor: Color(0xFF1A1A1A),
         cardTheme: CardTheme(
-          color: Colors.black54,
-          elevation: 8,
+          color: Colors.black.withOpacity(0.6),
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(color: Colors.white10),
           ),
         ),
         floatingActionButtonTheme: FloatingActionButtonThemeData(
-          backgroundColor: Colors.black54,
-          elevation: 8,
+          backgroundColor: Colors.white.withOpacity(0.2),
+          elevation: 0,
+          extendedTextStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
         ),
       ),
       home: FaceDetectionScreen(),
@@ -547,271 +553,442 @@ class _FaceDetectionScreenState extends State<FaceDetectionScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text("Face Analysis"),
-        backgroundColor: Colors.black87,
-        elevation: 0,
+        title: ShaderMask(
+          shaderCallback: (bounds) => LinearGradient(
+            colors: [Colors.indigo, Colors.purple],
+          ).createShader(bounds),
+          child: Text("Face Analysis"),
+        ),
         actions: [
           IconButton(
-            icon: Icon(_showHistory ? Icons.camera_alt : Icons.history),
-            onPressed: () {
-              setState(() {
-                _showHistory = !_showHistory;
-              });
-            },
+            icon: AnimatedSwitcher(
+              duration: Duration(milliseconds: 300),
+              child: Icon(
+                _showHistory ? Icons.camera_alt : Icons.history,
+                key: ValueKey(_showHistory),
+              ),
+            ),
+            onPressed: () => setState(() => _showHistory = !_showHistory),
           ),
           IconButton(
             icon: Icon(Icons.info_outline),
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: Colors.black87,
-                  title: Text("About Face Analysis"),
-                  content: Text(
-                      "This app analyzes your facial expressions and conditions in real-time.\n\n"
-                      "Features:\n"
-                      "• Emotion Detection\n"
-                      "• Fatigue Analysis\n"
-                      "• Lighting Adaptation\n"
-                      "• Real-time Feedback\n"
-                      "• Emotion History"),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: Text("Close"),
-                    ),
-                  ],
-                ),
-              );
-            },
+            onPressed: () => _showInfoDialog(context),
           ),
         ],
       ),
-      body: _showHistory
-          ? _buildHistoryView()
-          : _isCameraInitialized
-              ? Stack(
-                  children: [
-                    Positioned.fill(child: CameraPreview(_cameraController!)),
-                    // Overlay gradient for better text visibility
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withOpacity(0.7),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    // Analysis Card
-                    if (_isAnimationsInitialized &&
-                        _animationController != null &&
-                        _fadeAnimation != null &&
-                        _slideAnimation != null)
-                      AnimatedBuilder(
-                        animation: _animationController!,
-                        builder: (context, child) {
-                          return Positioned(
-                            bottom: 80 + _slideAnimation!.value,
-                            left: 20,
-                            right: 20,
-                            child: Opacity(
-                              opacity: _fadeAnimation!.value,
-                              child: Card(
-                                child: Padding(
-                                  padding: EdgeInsets.all(16),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Lighting Status
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color:
-                                              _lightingColor.withOpacity(0.2),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.lightbulb_outline,
-                                                color: _lightingColor),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              _lightingStatus,
-                                              style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: _lightingColor,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(height: 12),
-                                      // Face Condition
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color:
-                                              _conditionColor.withOpacity(0.2),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.face,
-                                                color: _conditionColor),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              _faceCondition,
-                                              style: TextStyle(
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.bold,
-                                                color: _conditionColor,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(height: 12),
-                                      // Mood
-                                      Container(
-                                        padding: EdgeInsets.symmetric(
-                                            horizontal: 12, vertical: 6),
-                                        decoration: BoxDecoration(
-                                          color: _moodColor.withOpacity(0.2),
-                                          borderRadius:
-                                              BorderRadius.circular(20),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(Icons.psychology,
-                                                color: _moodColor),
-                                            SizedBox(width: 8),
-                                            Text(
-                                              _mood,
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                                color: _moodColor,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(height: 12),
-                                      // Confidence Bar
-                                      Column(
-                                        children: [
-                                          ClipRRect(
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                            child: LinearProgressIndicator(
-                                              value: _confidence,
-                                              backgroundColor: Colors.white24,
-                                              valueColor:
-                                                  AlwaysStoppedAnimation<Color>(
-                                                      _moodColor),
-                                              minHeight: 8,
-                                            ),
-                                          ),
-                                          SizedBox(height: 4),
-                                          Text(
-                                            "Confidence: ${(_confidence * 100).toStringAsFixed(1)}%",
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.white70,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    // Camera Switch Button
-                    Positioned(
-                      bottom: 20,
-                      right: 20,
-                      child: FloatingActionButton(
-                        onPressed: _switchCamera,
-                        child: Icon(Icons.switch_camera),
-                        backgroundColor: Colors.black54,
-                      ),
-                    ),
-                  ],
-                )
-              : Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                      SizedBox(height: 20),
-                      Text(
-                        "Initializing Camera...",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+      body: _showHistory ? _buildHistoryView() : _buildCameraView(),
+    );
+  }
+
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Color(0xFF2A2A2A),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: Colors.indigo.withOpacity(0.2)),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.psychology, color: Colors.indigo),
+            SizedBox(width: 12),
+            Text("About Face Analysis"),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildFeatureItem(Icons.face, "Emotion Detection"),
+            _buildFeatureItem(Icons.bedtime, "Fatigue Analysis"),
+            _buildFeatureItem(Icons.lightbulb, "Lighting Adaptation"),
+            _buildFeatureItem(Icons.speed, "Real-time Feedback"),
+            _buildFeatureItem(Icons.history, "Emotion History"),
+          ],
+        ),
+        actions: [
+          TextButton(
+            child: Text("Close", style: TextStyle(color: Colors.indigo)),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(IconData icon, String text) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.indigo, size: 20),
+          SizedBox(width: 12),
+          Text(text),
+        ],
+      ),
     );
   }
 
   Widget _buildHistoryView() {
     if (_emotionHistory.isEmpty) {
       return Center(
-        child: Text(
-          "No emotion history yet",
-          style: TextStyle(color: Colors.white70),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history,
+                size: 64, color: Colors.indigo.withOpacity(0.5)),
+            SizedBox(height: 16),
+            Text(
+              "No emotion history yet",
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       );
     }
 
     return ListView.builder(
+      padding: EdgeInsets.all(16),
       itemCount: _emotionHistory.length,
       itemBuilder: (context, index) {
         final data = _emotionHistory[_emotionHistory.length - 1 - index];
-        return Card(
-          margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: ListTile(
-            leading: Icon(
-              _getMoodIcon(data.mood),
-              color: _getMoodColor(data.mood),
-            ),
-            title: Text(data.mood),
-            subtitle: Text(
-              "${data.condition}\n${data.lightingStatus}\n${data.timestamp.toString().substring(0, 16)}",
-            ),
-            trailing: CircularProgressIndicator(
-              value: data.confidence,
-              backgroundColor: Colors.white24,
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(_getMoodColor(data.mood)),
+        return AnimatedOpacity(
+          opacity: 1.0,
+          duration: Duration(milliseconds: 300),
+          child: Card(
+            margin: EdgeInsets.only(bottom: 12),
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    _getMoodColor(data.mood).withOpacity(0.2),
+                    Colors.transparent,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: ListTile(
+                contentPadding: EdgeInsets.all(16),
+                leading: Container(
+                  padding: EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: _getMoodColor(data.mood).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    _getMoodIcon(data.mood),
+                    color: _getMoodColor(data.mood),
+                    size: 32,
+                  ),
+                ),
+                title: Text(
+                  data.mood,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _getMoodColor(data.mood),
+                  ),
+                ),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: 8),
+                    _buildSubtitleRow(Icons.face, data.condition),
+                    _buildSubtitleRow(
+                        Icons.lightbulb_outline, data.lightingStatus),
+                    _buildSubtitleRow(
+                      Icons.access_time,
+                      data.timestamp.toString().substring(0, 16),
+                    ),
+                  ],
+                ),
+                trailing: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: CircularProgressIndicator(
+                    value: data.confidence,
+                    backgroundColor: Colors.white12,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      _getMoodColor(data.mood),
+                    ),
+                    strokeWidth: 4,
+                  ),
+                ),
+              ),
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildSubtitleRow(IconData icon, String text) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: Colors.white54),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: Colors.white70),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCameraView() {
+    return _isCameraInitialized
+        ? Stack(
+            children: [
+              // Camera Preview with correct aspect ratio
+              Positioned.fill(
+                child: AspectRatio(
+                  aspectRatio: _cameraController!.value.aspectRatio,
+                  child: CameraPreview(_cameraController!),
+                ),
+              ),
+              // Grid overlay with face guide
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: FaceGuidePainter(),
+                ),
+              ),
+              // Top controls
+              Positioned(
+                top: 100,
+                right: 20,
+                child: Column(
+                  children: [
+                    _buildControlButton(
+                      icon: Icons.flip_camera_ios,
+                      onPressed: _switchCamera,
+                      tooltip: 'Switch Camera',
+                    ),
+                    SizedBox(height: 16),
+                    _buildControlButton(
+                      icon: Icons.flash_auto,
+                      onPressed: () {},
+                      tooltip: 'Flash',
+                    ),
+                    SizedBox(height: 16),
+                    _buildControlButton(
+                      icon: Icons.grid_on,
+                      onPressed: () {},
+                      tooltip: 'Grid',
+                    ),
+                  ],
+                ),
+              ),
+              // Analysis Card
+              if (_isAnimationsInitialized && _animationController != null)
+                AnimatedBuilder(
+                  animation: _animationController!,
+                  builder: (context, child) {
+                    return Positioned(
+                      bottom: 90 + _slideAnimation!.value,
+                      left: 20,
+                      right: 20,
+                      child: Opacity(
+                        opacity: _fadeAnimation!.value,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(
+                              color: _moodColor.withOpacity(0.3),
+                              width: 2,
+                            ),
+                          ),
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceAround,
+                                  children: [
+                                    _buildQuickStatusChip(
+                                      icon: Icons.lightbulb_outline,
+                                      text: _lightingStatus,
+                                      color: _lightingColor,
+                                    ),
+                                    _buildQuickStatusChip(
+                                      icon: Icons.face,
+                                      text: _faceCondition,
+                                      color: _conditionColor,
+                                    ),
+                                  ],
+                                ),
+                                SizedBox(height: 16),
+                                _buildEnhancedMoodContainer(),
+                                SizedBox(height: 16),
+                                _buildConfidenceBar(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+            ],
+          )
+        : _buildLoadingView();
+  }
+
+  Widget _buildControlButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+    required String tooltip,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white24),
+      ),
+      child: IconButton(
+        icon: Icon(icon),
+        onPressed: onPressed,
+        tooltip: tooltip,
+        color: Colors.white,
+        iconSize: 24,
+      ),
+    );
+  }
+
+  Widget _buildQuickStatusChip({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 16),
+          SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEnhancedMoodContainer() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _moodColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _moodColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _moodColor.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _getMoodIcon(_mood),
+              color: _moodColor,
+              size: 40,
+            ),
+          ),
+          SizedBox(height: 12),
+          Text(
+            _mood,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: _moodColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfidenceBar() {
+    return Column(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: LinearProgressIndicator(
+            value: _confidence,
+            backgroundColor: Colors.white12,
+            valueColor: AlwaysStoppedAnimation<Color>(_moodColor),
+            minHeight: 8,
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(
+          "Confidence: ${(_confidence * 100).toStringAsFixed(1)}%",
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.white70,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLoadingView() {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 80,
+              height: 80,
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
+                strokeWidth: 6,
+              ),
+            ),
+            SizedBox(height: 24),
+            Text(
+              "Initializing Camera...",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w500,
+                letterSpacing: 1,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -830,4 +1007,41 @@ class _FaceDetectionScreenState extends State<FaceDetectionScreen>
     if (mood.contains("Stressed")) return Colors.red;
     return Colors.white;
   }
+}
+
+// Replace the GridPainter with FaceGuidePainter
+class FaceGuidePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.3)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+
+    // Draw face guide oval
+    final ovalRect = Rect.fromCenter(
+      center: Offset(size.width / 2, size.height / 2),
+      width: size.width * 0.6,
+      height: size.height * 0.4,
+    );
+    canvas.drawOval(ovalRect, paint);
+
+    // Draw guide lines
+    paint.strokeWidth = 0.5;
+    // Vertical center line
+    canvas.drawLine(
+      Offset(size.width / 2, 0),
+      Offset(size.width / 2, size.height),
+      paint,
+    );
+    // Horizontal center line
+    canvas.drawLine(
+      Offset(0, size.height / 2),
+      Offset(size.width, size.height / 2),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
