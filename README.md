@@ -3,11 +3,11 @@
 A Flutter application that performs real-time face analysis using ML Kit Face Detection. The app detects emotions, lighting conditions, and face positioning to provide comprehensive facial analysis.
 
 ## Preview
-<div style="display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
-    <img src="screenshots/emotion_detection.png" width="200" alt="Emotion Detection">
-    <img src="screenshots/lighting_analysis.png" width="200" alt="Lighting Analysis">
-    <img src="screenshots/face_tracking.png" width="200" alt="Face Tracking">
-    <img src="screenshots/history_view.png" width="200" alt="History View">
+<div align="center">
+  <img src="https://github.com/user-attachments/assets/6ec00094-faa0-40a0-bc5f-932d6f3fab11" width="200" alt="App Screenshot 1">
+  <img src="https://github.com/user-attachments/assets/c9fce828-c1a8-4860-94ed-a9ad6b3a94d8" width="200" alt="App Screenshot 2">
+  <img src="https://github.com/user-attachments/assets/6313636d-5d74-487d-9d1e-3d74fe4f0079" width="200" alt="App Screenshot 3">
+  <img src="https://github.com/user-attachments/assets/83a58747-0120-4e32-a805-0036a92e0a79" width="200" alt="App Screenshot 4">
 </div>
 
 ## Features
